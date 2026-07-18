@@ -73,7 +73,7 @@ class RentalOrderService {
       // Automatically create a pending Payment record for the checkout amount
       const taxAmount = rentalAmount * 0.18; // 18% tax
       const totalAmount = rentalAmount + taxAmount;
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           orderId: order.id,
           customerId: order.customerId,
@@ -86,13 +86,30 @@ class RentalOrderService {
       });
 
       // Automatically create a held Security Deposit record
-      await tx.securityDeposit.create({
+      const deposit = await tx.securityDeposit.create({
         data: {
           orderId: order.id,
           customerId: order.customerId,
           depositAmount: vehicle.securityDeposit,
           refundStatus: 'Pending',
           depositStatus: 'Held'
+        }
+      });
+
+      // Automatically create an Invoice record for the initial total (rental + tax + security deposit)
+      const invoiceNumber = `INV-${orderNumber.split('-')[2] || order.id.slice(0, 8)}`;
+      await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          orderId: order.id,
+          customerId: order.customerId,
+          paymentId: payment.id,
+          rentalAmount,
+          taxAmount,
+          depositAmount: vehicle.securityDeposit,
+          penaltyAmount: 0,
+          totalAmount: totalAmount + Number(vehicle.securityDeposit),
+          invoiceStatus: 'Pending',
         }
       });
 
@@ -275,19 +292,25 @@ class RentalOrderService {
         }
       });
 
-      // Create final Invoice
+      // Update or create final Invoice
       const taxAmount = Number(order.rentalAmount) * 0.18;
       const totalAmount = Number(order.rentalAmount) + taxAmount + penaltyAmount;
 
-      const invoiceNumber = `INV-${order.orderNumber.split('-')[2]}`;
-      await tx.invoice.create({
-        data: {
+      const invoiceNumber = `INV-${order.orderNumber.split('-')[2] || id.slice(0, 8)}`;
+      await tx.invoice.upsert({
+        where: { orderId: id },
+        create: {
           invoiceNumber,
           orderId: id,
           customerId: order.customerId,
           rentalAmount: order.rentalAmount,
           taxAmount,
           depositAmount: depositAmount,
+          penaltyAmount,
+          totalAmount,
+          invoiceStatus: 'Paid',
+        },
+        update: {
           penaltyAmount,
           totalAmount,
           invoiceStatus: 'Paid',
