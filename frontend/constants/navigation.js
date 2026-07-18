@@ -14,6 +14,8 @@ import {
   BarChart3,
   Settings,
   User,
+  ShoppingCart,
+  Receipt,
 } from 'lucide-react';
 import { APP_ROUTES } from '@/constants/routes';
 
@@ -131,38 +133,38 @@ export const ADMIN_NAV = [
 
 export const CUSTOMER_NAV = [
   {
-    id: 'overview',
-    label: 'Overview',
-    href: APP_ROUTES.CUSTOMER.DASHBOARD,
-    icon: LayoutDashboard,
+    id: 'browse',
+    label: 'Browse Cars',
+    href: APP_ROUTES.CUSTOMER.VEHICLES,
+    icon: Car,
     enabled: true,
   },
   {
-    id: 'browse',
-    label: 'Browse Vehicles',
-    href: APP_ROUTES.CUSTOMER.VEHICLES,
-    icon: Car,
-    enabled: false,
+    id: 'cart',
+    label: 'Cart',
+    href: APP_ROUTES.CUSTOMER.CART,
+    icon: ShoppingCart,
+    enabled: true,
   },
   {
     id: 'rentals',
     label: 'My Rentals',
     href: APP_ROUTES.CUSTOMER.RENTALS,
-    icon: ClipboardList,
-    enabled: false,
+    icon: CalendarRange,
+    enabled: true,
   },
   {
-    id: 'payments',
-    label: 'Payments',
+    id: 'invoices',
+    label: 'Invoices',
     href: APP_ROUTES.CUSTOMER.PAYMENTS,
-    icon: CreditCard,
-    enabled: false,
+    icon: Receipt,
+    enabled: true,
   },
   {
     id: 'profile',
     label: 'Profile',
     href: APP_ROUTES.CUSTOMER.PROFILE,
     icon: User,
-    enabled: false,
+    enabled: true,
   },
 ];
