@@ -3,44 +3,43 @@ import prisma from '../../config/db.js';
 import ApiError from '../../utils/ApiError.js';
 
 class SecurityDepositService {
-  async create(data) {
-    const order = await sdRepository.getOrder(data.rentalOrderId);
+  async create(data, user) {
+    const customerId = user.role === 'ADMIN' ? (data.customerId || user.id) : user.id;
+
+    // Check if order exists
+    const order = await prisma.rentalOrder.findUnique({ where: { id: data.orderId } });
     if (!order) throw new ApiError(404, 'Rental order not found');
 
-    if (order.securityDeposits && order.securityDeposits.length > 0) {
-      throw new ApiError(400, 'Security deposit already collected for this order');
-    }
+    const depositAmount = Number(data.depositAmount || order.rentalAmount);
 
-    if (data.amountCollected < Number(order.securityDeposit)) {
-      throw new ApiError(400, `Deposit amount (${data.amountCollected}) cannot be less than required vehicle security deposit (${order.securityDeposit})`);
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const deposit = await tx.securityDeposit.create({
-        data: {
-          rentalOrderId: data.rentalOrderId,
-          amountCollected: data.amountCollected,
-          reason: data.reason,
-          refundStatus: 'NOT_REFUNDED'
-        }
-      });
-      return deposit;
+    return sdRepository.create({
+      orderId: data.orderId,
+      customerId,
+      depositAmount,
+      refundStatus: 'Pending',
+      depositStatus: 'Held'
     });
   }
 
-  async getAll(query) {
+  async getAll(query, user) {
     const page = parseInt(query.page) || 1;
     const limit = parseInt(query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const where = {};
+    if (user.role !== 'ADMIN') {
+      where.customerId = user.id;
+    } else if (query.customerId) {
+      where.customerId = query.customerId;
+    }
+
     if (query.refundStatus) where.refundStatus = query.refundStatus;
-    // Assuming searching across relation based on business requirements
-    if (query.orderNumber) where.rentalOrder = { bookingNumber: { contains: query.orderNumber, mode: 'insensitive' } };
-    
-    let orderBy = {};
-    // Fallback logic
-    orderBy = { id: 'desc' };
+    if (query.depositStatus) where.depositStatus = query.depositStatus;
+    if (query.orderNumber) {
+      where.order = { orderNumber: { contains: query.orderNumber, mode: 'insensitive' } };
+    }
+
+    let orderBy = { createdAt: 'desc' };
 
     const [total, deposits] = await sdRepository.findAll({ skip, take: limit, where, orderBy });
     return {
@@ -49,61 +48,47 @@ class SecurityDepositService {
     };
   }
 
-  async getById(id) {
+  async getById(id, user) {
     const deposit = await sdRepository.findById(id);
     if (!deposit) throw new ApiError(404, 'Security deposit not found');
+    if (user.role !== 'ADMIN' && deposit.customerId !== user.id) {
+      throw new ApiError(403, 'Not authorized');
+    }
     return deposit;
   }
 
-  async update(id, data) {
+  async update(id, data, user) {
     const deposit = await sdRepository.findById(id);
     if (!deposit) throw new ApiError(404, 'Security deposit not found');
-    if (deposit.refundStatus !== 'NOT_REFUNDED') throw new ApiError(400, 'Cannot update a deposit that has been partially or fully refunded');
-    
+    if (user.role !== 'ADMIN') throw new ApiError(403, 'Not authorized');
+
     return sdRepository.update(id, data);
   }
 
-  async processRefund(id, data) {
+  async processRefund(id, data, user) {
     const deposit = await sdRepository.findById(id);
     if (!deposit) throw new ApiError(404, 'Security deposit not found');
+    if (user.role !== 'ADMIN') throw new ApiError(403, 'Only admins can process refunds');
     
-    if (deposit.rentalOrder.status !== 'COMPLETED') {
-      throw new ApiError(400, 'Refund only allowed after Rental Order is COMPLETED');
+    if (deposit.order.orderStatus !== 'Completed') {
+      throw new ApiError(400, 'Refund only allowed after Rental Order is Completed');
     }
 
-    const currentlyRefunded = Number(deposit.amountRefunded);
-    const collected = Number(deposit.amountCollected);
-    const toRefund = Number(data.amountToRefund);
-    const damage = data.damageCost ? Number(data.damageCost) : 0;
+    const depositAmount = Number(deposit.depositAmount);
+    const penaltyAmount = Number(data.penaltyAmount || 0);
+    const refundAmount = Math.max(0, depositAmount - penaltyAmount);
 
-    if (currentlyRefunded + toRefund + damage > collected) {
-      throw new ApiError(400, 'Refund + Damage cannot exceed total collected amount');
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const newRefundedAmount = currentlyRefunded + toRefund;
-      const newDamageCost = Number(deposit.damageCost) + damage;
-      
-      let newStatus = 'PARTIALLY_REFUNDED';
-      if (newRefundedAmount + newDamageCost >= collected) {
-        newStatus = 'REFUNDED';
-      }
-
-      const updated = await tx.securityDeposit.update({
-        where: { id },
-        data: {
-          amountRefunded: newRefundedAmount,
-          damageCost: newDamageCost,
-          refundStatus: newStatus,
-          refundedAt: new Date(),
-          reason: data.reason || deposit.reason
-        }
-      });
-      return {
-        deposit: updated,
-        remainingDeposit: collected - newRefundedAmount - newDamageCost
-      };
+    return sdRepository.update(id, {
+      penaltyAmount,
+      penaltyReason: data.penaltyReason || (penaltyAmount > 0 ? 'Deducted for return damages/delays' : null),
+      refundAmount,
+      refundMethod: data.refundMethod,
+      refundStatus: penaltyAmount >= depositAmount ? 'Partially_Refunded' : 'Refunded',
+      depositStatus: 'Released',
+      refundDate: new Date(),
+      remarks: data.remarks || null
     });
   }
 }
+
 export default new SecurityDepositService();
