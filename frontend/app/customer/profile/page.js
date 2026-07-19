@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { User, Lock, Eye, EyeOff, Save } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Save, ShieldCheck } from 'lucide-react';
 import MasterPage from '@/components/master/MasterPage';
 import PageLoader from '@/components/common/PageLoader';
 import { APP_ROUTES } from '@/constants/routes';
@@ -78,6 +78,14 @@ export default function CustomerProfilePage() {
   async function handleSaveProfile(e) {
     e.preventDefault();
     if (!form.firstName.trim()) { notify.error('First name is required'); return; }
+
+    const hasLicenseNo = !!form.drivingLicenseNo?.trim();
+    const hasLicenseImg = !!form.drivingLicenseImage;
+    if ((hasLicenseNo && !hasLicenseImg) || (!hasLicenseNo && hasLicenseImg)) {
+      notify.error('Please provide both the Driving License Number AND the photo copy.');
+      return;
+    }
+
     setSaving(true);
     try {
       await userService.updateProfile(form);
@@ -188,38 +196,50 @@ export default function CustomerProfilePage() {
                 className="input-field w-full"
               />
             </FieldGroup>
-            <FieldGroup label="Driving License No.">
-              <input
-                type="text"
-                value={form.drivingLicenseNo}
-                onChange={(e) => setForm((f) => ({ ...f, drivingLicenseNo: e.target.value }))}
-                className="input-field w-full"
-                placeholder="e.g. GJ01-20251234567"
-              />
-            </FieldGroup>
-            <FieldGroup label="Driving License Copy (Image)">
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20 cursor-pointer"
-                />
-                {form.drivingLicenseImage ? (
-                  <div className="relative mt-2 h-40 w-full overflow-hidden rounded-xl border border-border bg-slate-50">
-                    <img
-                      src={form.drivingLicenseImage}
-                      alt="Driving License Copy"
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted">
-                    No image uploaded yet.
-                  </div>
-                )}
+            {/* Driving License Verification Box */}
+            <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 sm:p-5 space-y-4">
+              <div className="flex gap-2 items-center text-accent">
+                <ShieldCheck size={16} />
+                <h3 className="text-sm font-bold text-primary">Identity & Verification</h3>
               </div>
-            </FieldGroup>
+              <p className="text-[11px] text-muted leading-relaxed">
+                Provide your driving license details to unlock rental bookings. You can save your profile without this now, and add it later. If you do add it, both number and copy must be uploaded.
+              </p>
+
+              <FieldGroup label="Driving License No.">
+                <input
+                  type="text"
+                  value={form.drivingLicenseNo}
+                  onChange={(e) => setForm((f) => ({ ...f, drivingLicenseNo: e.target.value }))}
+                  className="input-field w-full bg-white"
+                  placeholder="e.g. GJ01-20251234567"
+                />
+              </FieldGroup>
+
+              <FieldGroup label="Driving License Copy (Image)">
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-white file:text-accent hover:file:bg-slate-50 border border-border rounded-xl bg-white p-1 cursor-pointer"
+                  />
+                  {form.drivingLicenseImage ? (
+                    <div className="relative mt-2 h-40 w-full overflow-hidden rounded-xl border border-border bg-white">
+                      <img
+                        src={form.drivingLicenseImage}
+                        alt="Driving License Copy"
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted bg-white">
+                      No image uploaded yet.
+                    </div>
+                  )}
+                </div>
+              </FieldGroup>
+            </div>
             <div className="pt-2">
               <button
                 type="submit"
