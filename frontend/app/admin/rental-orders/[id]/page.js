@@ -382,21 +382,30 @@ export default function RentalOrderDetailPage() {
                 Perform vehicle return inspection checks. Set the return condition and enter penalties if damages or delays occurred.
               </p>
 
-              {isLate && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">⚠️ Late Return Detected</p>
-                      <p className="text-[11px] text-amber-700/80 mt-0.5">
-                        Vehicle is late by <strong>{lateHours} hour{lateHours !== 1 ? 's' : ''}</strong> (Expected: {formatDateTime(order.expectedReturnDate)}).
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-semibold text-muted">Estimated Late Fee</p>
-                      <p className="text-sm font-bold text-amber-800 tabular-nums">{formatCurrency(autoLateFee)}</p>
-                    </div>
+              {/* Return Timing & Late Fee Calculator Status */}
+              <div className={`rounded-xl border p-4 space-y-3 ${isLate ? 'border-amber-200 bg-amber-50/50' : 'border-emerald-200 bg-emerald-50/30'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-wide ${isLate ? 'text-amber-800' : 'text-emerald-800'}`}>
+                      {isLate ? '⚠️ Late Return Detected' : '✅ Return Timeline Status'}
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${isLate ? 'text-amber-700/80' : 'text-emerald-700/80'}`}>
+                      {isLate ? (
+                        <>Vehicle is late by <strong>{lateHours} hour{lateHours !== 1 ? 's' : ''}</strong> (Expected: {formatDateTime(order.expectedReturnDate)}).</>
+                      ) : (
+                        <>Vehicle is on schedule (Expected return deadline: {formatDateTime(order.expectedReturnDate)}).</>
+                      )}
+                    </p>
                   </div>
+                  <div className="text-right">
+                    <p className="text-xs font-semibold text-muted">Estimated Late Penalty</p>
+                    <p className={`text-sm font-bold tabular-nums ${isLate ? 'text-amber-800' : 'text-emerald-800'}`}>
+                      {formatCurrency(isLate ? autoLateFee : 0)}
+                    </p>
+                  </div>
+                </div>
 
+                {isLate && (
                   <div className="flex items-center gap-2 pt-2 border-t border-amber-200/50">
                     <input
                       type="checkbox"
@@ -409,8 +418,8 @@ export default function RentalOrderDetailPage() {
                       Apply Auto-Calculated Late Penalty (₹{autoLateFee})
                     </label>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2 mt-2">
                 <Select

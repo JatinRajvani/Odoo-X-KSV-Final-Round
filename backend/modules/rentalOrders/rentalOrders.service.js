@@ -301,7 +301,7 @@ class RentalOrderService {
       const taxAmount = Number(order.rentalAmount) * 0.18;
       const totalAmount = Number(order.rentalAmount) + taxAmount + penaltyAmount;
 
-      const invoiceNumber = `INV-${order.orderNumber.split('-')[2] || id.slice(0, 8)}`;
+      const invoiceNumber = `INV-${order.orderNumber.replace('BKG-', '')}`;
       await tx.invoice.upsert({
         where: { orderId: id },
         create: {
