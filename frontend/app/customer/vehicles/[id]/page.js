@@ -23,10 +23,11 @@ import notify from '@/lib/toast';
 // Helpers
 // ------------------------------------------------------------------
 
-/** Convert a local date-only string "YYYY-MM-DD" to UTC ISO datetime "YYYY-MM-DDT00:00:00Z" */
-function toISODateTime(dateStr) {
+/** Convert a local date-only string "YYYY-MM-DD" and time-only string "HH:MM" to UTC ISO datetime */
+function toISODateTime(dateStr, timeStr = '10:00') {
   if (!dateStr) return '';
-  return new Date(dateStr + 'T00:00:00').toISOString();
+  const time = timeStr || '10:00';
+  return new Date(dateStr + 'T' + time).toISOString();
 }
 
 /** Calculate total hours between two date strings */
@@ -80,7 +81,9 @@ export default function CustomerVehicleDetailPage() {
 
   // Booking form state
   const [pickupDate, setPickupDate] = useState('');       // YYYY-MM-DD
+  const [pickupTime, setPickupTime] = useState('10:00');  // HH:MM
   const [returnDate, setReturnDate] = useState('');       // YYYY-MM-DD
+  const [returnTime, setReturnTime] = useState('10:00');  // HH:MM
   // pickupType must match backend enum exactly
   const [pickupType, setPickupType] = useState('Store_Pickup');
   const [paymentMethod, setPaymentMethod] = useState('UPI'); // 'UPI' | 'Card' | 'Cash'
@@ -127,7 +130,13 @@ export default function CustomerVehicleDetailPage() {
   // ------------------------------------------------------------------
   // Pricing calculation — base unit is HOURS
   // ------------------------------------------------------------------
-  const totalHours = useMemo(() => hoursBetween(pickupDate, returnDate), [pickupDate, returnDate]);
+  const totalHours = useMemo(() => {
+    const fromISO = toISODateTime(pickupDate, pickupTime);
+    const toISO = toISODateTime(returnDate, returnTime);
+    if (!fromISO || !toISO) return 0;
+    const diff = new Date(toISO) - new Date(fromISO);
+    return Math.max(1, Math.round(diff / (1000 * 60 * 60)));
+  }, [pickupDate, pickupTime, returnDate, returnTime]);
   const rentPerHour = vehicle ? Number(vehicle.rentPerHour || 0) : 0;
   const rentalAmount = rentPerHour * totalHours;
   const securityDeposit = vehicle ? Number(vehicle.securityDeposit || 0) : 0;
@@ -149,8 +158,11 @@ export default function CustomerVehicleDetailPage() {
   async function handleBooking() {
     if (!pickupDate)  { notify.error('Please select a pickup date'); return; }
     if (!returnDate)  { notify.error('Please select a return date'); return; }
-    if (new Date(returnDate) <= new Date(pickupDate)) {
-      notify.error('Return date must be after pickup date'); return;
+
+    const fromDT = new Date(`${pickupDate}T${pickupTime}`);
+    const toDT = new Date(`${returnDate}T${returnTime}`);
+    if (toDT <= fromDT) {
+      notify.error('Return date & time must be after pickup date & time'); return;
     }
     if (paymentMethod !== 'Cash' && !transactionId.trim()) {
       notify.error('Please enter the payment transaction reference ID'); return;
@@ -161,8 +173,8 @@ export default function CustomerVehicleDetailPage() {
       const payload = {
         vehicleId: id,
         pickupType,                          // 'Store_Pickup' | 'Home_Delivery'
-        pickupDate: toISODateTime(pickupDate),
-        expectedReturnDate: toISODateTime(returnDate),
+        pickupDate: toISODateTime(pickupDate, pickupTime),
+        expectedReturnDate: toISODateTime(returnDate, returnTime),
         rentalUnit,                          // derived from date diff
         rentalDuration,                      // derived from date diff
         paymentMethod,                       // 'Cash' | 'Card' | 'UPI'
@@ -350,44 +362,59 @@ export default function CustomerVehicleDetailPage() {
                   Book this Vehicle
                 </h2>
 
-              {/* From date */}
+              {/* Pickup Schedule */}
               <div className="mb-4">
                 <label className="mb-1.5 block text-xs font-semibold text-muted uppercase tracking-wide">
-                  Pickup Date
+                  Pickup Schedule
                 </label>
-                <input
-                  type="date"
-                  value={pickupDate}
-                  min={today}
-                  onChange={(e) => {
-                    setPickupDate(e.target.value);
-                    // Auto-push return date if it's before or equal to new pickup
-                    if (returnDate && returnDate <= e.target.value) {
-                      const next = new Date(e.target.value);
-                      next.setDate(next.getDate() + 1);
-                      setReturnDate(next.toISOString().split('T')[0]);
-                    }
-                  }}
-                  className="input-field w-full"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    min={today}
+                    onChange={(e) => {
+                      setPickupDate(e.target.value);
+                      if (returnDate && returnDate <= e.target.value) {
+                        const next = new Date(e.target.value);
+                        next.setDate(next.getDate() + 1);
+                        setReturnDate(next.toISOString().split('T')[0]);
+                      }
+                    }}
+                    className="input-field w-full text-xs"
+                  />
+                  <input
+                    type="time"
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="input-field w-full text-xs"
+                  />
+                </div>
               </div>
 
-              {/* To date */}
+              {/* Return Schedule */}
               <div className="mb-4">
                 <label className="mb-1.5 block text-xs font-semibold text-muted uppercase tracking-wide">
-                  Return Date
+                  Return Schedule
                 </label>
-                <input
-                  type="date"
-                  value={returnDate}
-                  min={pickupDate || today}
-                  onChange={(e) => setReturnDate(e.target.value)}
-                  className="input-field w-full"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={returnDate}
+                    min={pickupDate || today}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                    className="input-field w-full text-xs"
+                  />
+                  <input
+                    type="time"
+                    value={returnTime}
+                    onChange={(e) => setReturnTime(e.target.value)}
+                    className="input-field w-full text-xs"
+                  />
+                </div>
               </div>
 
               {/* Duration pill */}
-              {pickupDate && returnDate && new Date(returnDate) > new Date(pickupDate) && (
+              {pickupDate && returnDate && (
                 <div className="mb-4 flex items-center gap-2 rounded-xl bg-accent/5 border border-accent/20 px-4 py-2.5">
                   <Clock size={15} className="text-accent shrink-0" />
                   <p className="text-sm font-medium text-accent">
@@ -539,8 +566,10 @@ export default function CustomerVehicleDetailPage() {
                 onClick={() => {
                   if (!pickupDate) { notify.error('Select a pickup date'); return; }
                   if (!returnDate) { notify.error('Select a return date'); return; }
-                  if (new Date(returnDate) <= new Date(pickupDate)) {
-                    notify.error('Return date must be after pickup date'); return;
+                  const fromDT = new Date(`${pickupDate}T${pickupTime}`);
+                  const toDT = new Date(`${returnDate}T${returnTime}`);
+                  if (toDT <= fromDT) {
+                    notify.error('Return date & time must be after pickup date & time'); return;
                   }
                   setShowConfirm(true);
                 }}
@@ -582,7 +611,7 @@ export default function CustomerVehicleDetailPage() {
         onConfirm={handleBooking}
         loading={booking}
         title="Confirm Booking"
-        description={`Book ${vehicle.brand} ${vehicle.model} from ${formatDate(pickupDate)} to ${formatDate(returnDate)} (${formatDuration(totalHours)})? Total payable: ${formatCurrency(totalPayable)}`}
+        description={`Book ${vehicle.brand} ${vehicle.model} from ${formatDate(pickupDate)} ${pickupTime} to ${formatDate(returnDate)} ${returnTime} (${formatDuration(totalHours)})? Total payable: ${formatCurrency(totalPayable)}`}
         confirmLabel="Yes, Book Now"
         tone="accent"
       />

@@ -61,6 +61,7 @@ export const returnOrderSchema = z.object({
     returnRemarks: z.string().optional().nullable(),
     penaltyAmount: z.number().nonnegative().optional(),
     penaltyReason: z.string().optional().nullable(),
-    latePenaltyEnabled: z.boolean().optional()
+    latePenaltyEnabled: z.boolean().optional(),
+    actualReturnDate: z.string().optional()
   })
 });

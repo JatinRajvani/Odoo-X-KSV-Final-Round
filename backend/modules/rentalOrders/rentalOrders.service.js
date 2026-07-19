@@ -239,7 +239,7 @@ class RentalOrderService {
       throw new ApiError(403, 'Only ADMIN can perform return inspections');
     }
 
-    const actualReturnDate = new Date();
+    const actualReturnDate = data.actualReturnDate ? new Date(data.actualReturnDate) : new Date();
     const expectedReturnDate = new Date(order.expectedReturnDate);
     const diffMs = actualReturnDate - expectedReturnDate;
     const lateHours = diffMs > 0 ? Math.ceil(diffMs / (1000 * 60 * 60)) : 0;

@@ -55,16 +55,27 @@ export default function RentalOrderDetailPage() {
   const [returnRemarks, setReturnRemarks] = useState('Returned and inspected safely.');
   const [latePenaltyEnabled, setLatePenaltyEnabled] = useState(true);
 
+  const [actualReturnDate, setActualReturnDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [actualReturnTime, setActualReturnTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
+
+  const actualReturnDateTime = useMemo(() => {
+    if (!actualReturnDate || !actualReturnTime) return null;
+    return new Date(`${actualReturnDate}T${actualReturnTime}`);
+  }, [actualReturnDate, actualReturnTime]);
+
   const isLate = useMemo(() => {
-    if (!order?.expectedReturnDate) return false;
-    return new Date() > new Date(order.expectedReturnDate);
-  }, [order]);
+    if (!order?.expectedReturnDate || !actualReturnDateTime) return false;
+    return actualReturnDateTime.getTime() > new Date(order.expectedReturnDate).getTime();
+  }, [order, actualReturnDateTime]);
 
   const lateHours = useMemo(() => {
-    if (!isLate) return 0;
-    const diffMs = new Date() - new Date(order.expectedReturnDate);
-    return Math.ceil(diffMs / (1000 * 60 * 60));
-  }, [isLate, order]);
+    if (!isLate || !actualReturnDateTime) return 0;
+    const diffMs = actualReturnDateTime.getTime() - new Date(order.expectedReturnDate).getTime();
+    return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
+  }, [isLate, order, actualReturnDateTime]);
 
   const autoLateFee = useMemo(() => {
     if (!isLate || !order?.vehicle?.rentPerHour) return 0;
@@ -159,7 +170,8 @@ export default function RentalOrderDetailPage() {
         returnRemarks,
         penaltyAmount: Number(penaltyAmount) || 0,
         penaltyReason: Number(penaltyAmount) > 0 ? penaltyReason : null,
-        latePenaltyEnabled
+        latePenaltyEnabled,
+        actualReturnDate: actualReturnDateTime ? actualReturnDateTime.toISOString() : undefined
       };
       await rentalService.returnVehicle(id, payload);
       notify.success('Vehicle return and inspection registered successfully!');
@@ -422,6 +434,18 @@ export default function RentalOrderDetailPage() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 mt-2">
+                <Input
+                  label="Actual Return Date"
+                  type="date"
+                  value={actualReturnDate}
+                  onChange={(e) => setActualReturnDate(e.target.value)}
+                />
+                <Input
+                  label="Actual Return Time"
+                  type="time"
+                  value={actualReturnTime}
+                  onChange={(e) => setActualReturnTime(e.target.value)}
+                />
                 <Select
                   label="Condition"
                   value={returnCondition}
@@ -588,7 +612,7 @@ export default function RentalOrderDetailPage() {
                   </div>
                 )}
 
-                {order.securityDeposit.depositStatus === 'Released' && order.securityDeposit.refundStatus === 'Pending' && (
+                {order.orderStatus === 'Completed' && order.securityDeposit.refundStatus === 'Pending' && (
                   <div className="mt-4 border-t border-border pt-4 space-y-3">
                     <h4 className="text-xs font-bold text-primary uppercase">Process Manual Deposit Refund</h4>
                     <div className="grid gap-2 sm:grid-cols-2">
