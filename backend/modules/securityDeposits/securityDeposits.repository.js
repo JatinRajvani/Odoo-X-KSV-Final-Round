@@ -1,10 +1,10 @@
 import prisma from '../../config/db.js';
 
 class SecurityDepositRepository {
-  async getOrder(orderId) {
-    return prisma.rentalOrder.findUnique({
-      where: { id: orderId },
-      include: { securityDeposits: true }
+  async findByOrderId(orderId) {
+    return prisma.securityDeposit.findUnique({
+      where: { orderId },
+      include: { customer: true }
     });
   }
 
@@ -16,8 +16,13 @@ class SecurityDepositRepository {
     return prisma.$transaction([
       prisma.securityDeposit.count({ where }),
       prisma.securityDeposit.findMany({
-        skip, take, where, orderBy,
-        include: { rentalOrder: { include: { customer: true } } }
+        skip,
+        take,
+        where,
+        orderBy,
+        include: {
+          order: { include: { customer: true } }
+        }
       })
     ]);
   }
@@ -25,12 +30,18 @@ class SecurityDepositRepository {
   async findById(id) {
     return prisma.securityDeposit.findUnique({
       where: { id },
-      include: { rentalOrder: true }
+      include: {
+        order: { include: { customer: true } }
+      }
     });
   }
 
   async update(id, data) {
-    return prisma.securityDeposit.update({ where: { id }, data });
+    return prisma.securityDeposit.update({
+      where: { id },
+      data
+    });
   }
 }
+
 export default new SecurityDepositRepository();

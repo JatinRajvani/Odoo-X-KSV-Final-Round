@@ -48,11 +48,13 @@ export default function EditVehiclePage() {
         year: Number(values.year),
         seatCapacity: Number(values.seatCapacity),
         mileage: Number(values.mileage),
-        basePrice: Number(values.basePrice),
+        rentPerHour: Number(values.rentPerHour),
+        rentPerDay: Number(values.rentPerDay),
+        rentPerWeek: Number(values.rentPerWeek),
+        rentPerMonth: Number(values.rentPerMonth),
         securityDeposit: Number(values.securityDeposit),
-        variant: values.variant || undefined,
+        currentOdometer: Number(values.currentOdometer),
         description: values.description || undefined,
-        currentStatus: values.currentStatus || undefined,
       };
       const result = await vehicleService.update(id, payload);
       notify.success(result.message || 'Vehicle updated');
@@ -100,9 +102,7 @@ export default function EditVehiclePage() {
             categoryId: vehicle.categoryId,
             brand: vehicle.brand,
             model: vehicle.model,
-            variant: vehicle.variant || '',
             registrationNumber: vehicle.registrationNumber,
-            vin: vehicle.vin,
             year: vehicle.year,
             fuelType: vehicle.fuelType,
             transmission: vehicle.transmission,
@@ -110,10 +110,14 @@ export default function EditVehiclePage() {
             seatCapacity: vehicle.seatCapacity,
             mileage: Number(vehicle.mileage),
             description: vehicle.description || '',
-            basePrice: Number(vehicle.basePrice),
+            rentPerHour: Number(vehicle.rentPerHour),
+            rentPerDay: Number(vehicle.rentPerDay),
+            rentPerWeek: Number(vehicle.rentPerWeek),
+            rentPerMonth: Number(vehicle.rentPerMonth),
             securityDeposit: Number(vehicle.securityDeposit),
-            availabilityStatus: vehicle.availabilityStatus,
-            currentStatus: vehicle.currentStatus || '',
+            engineCapacity: vehicle.engineCapacity || '',
+            currentOdometer: Number(vehicle.currentOdometer),
+            status: vehicle.status,
           }}
           onSubmit={onSubmit}
           loading={saving}

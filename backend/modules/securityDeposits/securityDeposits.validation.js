@@ -2,23 +2,23 @@ import { z } from 'zod';
 
 export const createDepositSchema = z.object({
   body: z.object({
-    rentalOrderId: z.string().uuid('Invalid rental order ID'),
-    amountCollected: z.number().nonnegative('Amount must be >= 0'),
-    reason: z.string().optional()
+    orderId: z.string().uuid('Invalid order ID'),
+    depositAmount: z.number().nonnegative('Amount must be >= 0'),
   })
 });
 
 export const updateDepositSchema = z.object({
   body: z.object({
-    amountCollected: z.number().nonnegative().optional(),
-    reason: z.string().optional()
+    depositAmount: z.number().nonnegative().optional(),
+    remarks: z.string().optional().nullable()
   })
 });
 
 export const refundDepositSchema = z.object({
   body: z.object({
-    amountToRefund: z.number().positive('Refund amount must be > 0'),
-    damageCost: z.number().nonnegative('Damage cost must be >= 0').optional(),
-    reason: z.string().optional()
+    penaltyAmount: z.number().nonnegative().optional(),
+    penaltyReason: z.string().optional().nullable(),
+    refundMethod: z.enum(['Cash', 'UPI', 'Bank_Transfer']),
+    remarks: z.string().optional().nullable()
   })
 });
