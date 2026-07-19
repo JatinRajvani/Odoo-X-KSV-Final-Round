@@ -51,7 +51,8 @@ class RentalOrderRepository {
 
   async generateOrderNumber() {
     const count = await prisma.rentalOrder.count();
-    return `BKG-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `BKG-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}-${randomSuffix}`;
   }
 }
 
