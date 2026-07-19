@@ -60,6 +60,7 @@ export const returnOrderSchema = z.object({
     returnCondition: z.enum(['Good', 'Damaged']),
     returnRemarks: z.string().optional().nullable(),
     penaltyAmount: z.number().nonnegative().optional(),
-    penaltyReason: z.string().optional().nullable()
+    penaltyReason: z.string().optional().nullable(),
+    latePenaltyEnabled: z.boolean().optional()
   })
 });

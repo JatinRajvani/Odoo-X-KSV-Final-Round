@@ -239,14 +239,35 @@ class RentalOrderService {
       throw new ApiError(403, 'Only ADMIN can perform return inspections');
     }
 
+    const actualReturnDate = new Date();
+    const expectedReturnDate = new Date(order.expectedReturnDate);
+    const diffMs = actualReturnDate - expectedReturnDate;
+    const lateHours = diffMs > 0 ? Math.ceil(diffMs / (1000 * 60 * 60)) : 0;
+
+    let latePenaltyAmount = 0;
+    if (data.latePenaltyEnabled !== false && lateHours > 0) {
+      latePenaltyAmount = lateHours * Number(order.vehicle.rentPerHour || 0);
+    }
+
+    const damagePenaltyAmount = Number(data.penaltyAmount || 0);
+    const penaltyAmount = damagePenaltyAmount + latePenaltyAmount;
+
+    let penaltyReason = '';
+    if (latePenaltyAmount > 0) {
+      penaltyReason += `Late Return: ₹${latePenaltyAmount} (${lateHours} hr${lateHours !== 1 ? 's' : ''} late)`;
+    }
+    if (damagePenaltyAmount > 0) {
+      const dmgText = data.penaltyReason || 'Damages/Inspections';
+      penaltyReason += (penaltyReason ? ' | ' : '') + `Damage: ₹${damagePenaltyAmount} (${dmgText})`;
+    }
+
     const returnRemarks = data.returnRemarks || 'Returned and inspected successfully.';
-    const penaltyAmount = Number(data.penaltyAmount || 0);
 
     return prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.rentalOrder.update({
         where: { id },
         data: {
-          actualReturnDate: new Date(),
+          actualReturnDate,
           returnCondition: data.returnCondition,
           returnRemarks,
           orderStatus: 'Completed'
@@ -268,7 +289,7 @@ class RentalOrderService {
         where: { orderId: id },
         data: {
           penaltyAmount,
-          penaltyReason: data.penaltyReason || (penaltyAmount > 0 ? 'Deducted for return damages/delays' : null),
+          penaltyReason: penaltyReason || (penaltyAmount > 0 ? 'Inspection adjustments' : null),
           refundAmount,
           refundStatus: 'Pending',
           depositStatus: 'Held',

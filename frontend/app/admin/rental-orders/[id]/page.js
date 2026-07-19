@@ -53,6 +53,23 @@ export default function RentalOrderDetailPage() {
   const [penaltyAmount, setPenaltyAmount] = useState('0');
   const [penaltyReason, setPenaltyReason] = useState('');
   const [returnRemarks, setReturnRemarks] = useState('Returned and inspected safely.');
+  const [latePenaltyEnabled, setLatePenaltyEnabled] = useState(true);
+
+  const isLate = useMemo(() => {
+    if (!order?.expectedReturnDate) return false;
+    return new Date() > new Date(order.expectedReturnDate);
+  }, [order]);
+
+  const lateHours = useMemo(() => {
+    if (!isLate) return 0;
+    const diffMs = new Date() - new Date(order.expectedReturnDate);
+    return Math.ceil(diffMs / (1000 * 60 * 60));
+  }, [isLate, order]);
+
+  const autoLateFee = useMemo(() => {
+    if (!isLate || !order?.vehicle?.rentPerHour) return 0;
+    return lateHours * Number(order.vehicle.rentPerHour);
+  }, [isLate, lateHours, order]);
 
   // Manual Refund States
   const [refundMethod, setRefundMethod] = useState('UPI');
@@ -141,7 +158,8 @@ export default function RentalOrderDetailPage() {
         returnCondition,
         returnRemarks,
         penaltyAmount: Number(penaltyAmount) || 0,
-        penaltyReason: Number(penaltyAmount) > 0 ? penaltyReason : null
+        penaltyReason: Number(penaltyAmount) > 0 ? penaltyReason : null,
+        latePenaltyEnabled
       };
       await rentalService.returnVehicle(id, payload);
       notify.success('Vehicle return and inspection registered successfully!');
@@ -363,6 +381,37 @@ export default function RentalOrderDetailPage() {
               <p className="text-xs text-secondary">
                 Perform vehicle return inspection checks. Set the return condition and enter penalties if damages or delays occurred.
               </p>
+
+              {isLate && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">⚠️ Late Return Detected</p>
+                      <p className="text-[11px] text-amber-700/80 mt-0.5">
+                        Vehicle is late by <strong>{lateHours} hour{lateHours !== 1 ? 's' : ''}</strong> (Expected: {formatDateTime(order.expectedReturnDate)}).
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-muted">Estimated Late Fee</p>
+                      <p className="text-sm font-bold text-amber-800 tabular-nums">{formatCurrency(autoLateFee)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-200/50">
+                    <input
+                      type="checkbox"
+                      id="latePenaltyToggle"
+                      checked={latePenaltyEnabled}
+                      onChange={(e) => setLatePenaltyEnabled(e.target.checked)}
+                      className="h-4 w-4 rounded border-amber-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                    />
+                    <label htmlFor="latePenaltyToggle" className="text-xs font-semibold text-amber-800 cursor-pointer select-none">
+                      Apply Auto-Calculated Late Penalty (₹{autoLateFee})
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2 mt-2">
                 <Select
                   label="Condition"
